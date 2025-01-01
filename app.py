@@ -1,7 +1,7 @@
 import os
 import cv2
 import pytesseract
-import torchimport 
+import torch
 import yt_dlp
 import whisper
 import streamlit as st
