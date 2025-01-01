@@ -11,18 +11,19 @@ from torchvision.models import detection
 
 
 
-# Function to download YouTube video using yt-dlp without merging
+# Function to download YouTube video using yt-dlp without merging and ffmpeg
 def download_video(youtube_url, output_dir="videos", cookies_path=None):
     os.makedirs(output_dir, exist_ok=True)
 
-    # Options for yt-dlp to download the best combined video and audio stream (no merging)
+    # Options for yt-dlp to download the best available video+audio stream (no merging, no ffmpeg)
     ydl_opts = {
         'format': 'best',  # Download the best available combined video+audio stream
         'outtmpl': os.path.join(output_dir, '%(id)s.%(ext)s'),  # Template for saving the file
         'noplaylist': True,  # To avoid downloading entire playlist if URL is a playlist
-        'postprocessors': [],  # Disable postprocessors to prevent merging
+        'postprocessors': [],  # Disable postprocessors to prevent merging and ffmpeg usage
         'no_warnings': True,  # Avoid unnecessary warnings
         'quiet': True,  # Minimize output for cleanliness
+        'merge_output_format': None,  # Explicitly disable merging output format
     }
 
     # If cookies are provided, add them to yt-dlp options
@@ -33,7 +34,7 @@ def download_video(youtube_url, output_dir="videos", cookies_path=None):
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
         ydl.download([youtube_url])
 
-    # Get the video path
+    # Get the video path (using the video ID as filename)
     video_id = youtube_url.split("v=")[-1]
     video_path = os.path.join(output_dir, f"{video_id}.mp4")
     return video_path
