@@ -6,3 +6,4 @@ torchvision
 transformers
 pytube
 streamlit
+yt_dlp
