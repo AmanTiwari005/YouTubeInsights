@@ -12,13 +12,13 @@ from torchvision.models import detection
 import yt_dlp
 import os
 
-# Function to download YouTube video using yt-dlp
+# Function to download YouTube video using yt-dlp without merging
 def download_video(youtube_url, output_dir="videos", cookies_path=None):
     os.makedirs(output_dir, exist_ok=True)
     
     # Options for yt-dlp
     ydl_opts = {
-        'format': 'bestvideo+bestaudio/best',  # Download best video and audio quality
+        'format': 'best',  # Download the best quality video+audio in a single file
         'outtmpl': os.path.join(output_dir, '%(id)s.%(ext)s'),  # Template for saving the file
     }
     
@@ -34,7 +34,6 @@ def download_video(youtube_url, output_dir="videos", cookies_path=None):
     video_id = youtube_url.split("v=")[-1]
     video_path = os.path.join(output_dir, f"{video_id}.mp4")
     return video_path
-
 
 # Function to extract frames
 def extract_frames(video_path, frame_rate=1, output_dir="frames"):
