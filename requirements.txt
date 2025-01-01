@@ -1,0 +1,7 @@
+opencv-python
+pytesseract
+openai-whisper
+torch
+transformers
+pytube
+streamlit
