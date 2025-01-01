@@ -1,19 +1,31 @@
 import os
 import cv2
 import pytesseract
-import torch
+import torchimport 
+import yt_dlp
 import whisper
 import streamlit as st
 from pytube import YouTube
 from torchvision import transforms
 from torchvision.models import detection
 
-# Function to download YouTube video
+# Function to download YouTube video using yt-dlp
 def download_video(youtube_url, output_dir="videos"):
     os.makedirs(output_dir, exist_ok=True)
-    yt = YouTube(youtube_url)
-    video_path = os.path.join(output_dir, f"{yt.video_id}.mp4")
-    yt.streams.filter(progressive=True, file_extension="mp4").first().download(filename=video_path)
+    
+    # Options for yt-dlp
+    ydl_opts = {
+        'format': 'bestvideo+bestaudio/best',  # Download best video and audio quality
+        'outtmpl': os.path.join(output_dir, '%(id)s.%(ext)s'),  # Template for saving the file
+    }
+
+    # Using yt-dlp to download the video
+    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+        ydl.download([youtube_url])
+
+    # Get the video path
+    video_id = youtube_url.split("v=")[-1]
+    video_path = os.path.join(output_dir, f"{video_id}.mp4")
     return video_path
 
 # Function to extract frames
@@ -86,7 +98,6 @@ def extract_text_from_frames(frame_dir):
 
     return results
 
-# Streamlit App
 def main():
     st.title("YouTube Video Content Analysis")
     st.write("Enter the URLs of YouTube videos to analyze their content.")
@@ -107,8 +118,11 @@ def main():
         for url in video_urls:
             st.write(f"Processing video: {url}")
             try:
+                # Specify the path to your cookies file for age-restricted videos (if needed)
+                cookies_path = 'path_to_your_cookies_file'  # Replace with actual path
+                
                 # Download video
-                video_path = download_video(url, output_dir=os.path.join(output_dir, "videos"))
+                video_path = download_video(url, output_dir=os.path.join(output_dir, "videos"), cookies_path=cookies_path)
                 st.write(f"Video downloaded: {video_path}")
 
                 # Extract frames
@@ -135,3 +149,6 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+
+
