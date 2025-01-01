@@ -9,14 +9,6 @@ from pytube import YouTube
 from torchvision import transforms
 from torchvision.models import detection
 
-import yt_dlp
-import os
-
-import yt_dlp
-import os
-
-import yt_dlp
-import os
 
 # Function to download YouTube video using yt-dlp without merging
 def download_video(youtube_url, output_dir="videos", cookies_path=None):
