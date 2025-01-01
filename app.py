@@ -22,11 +22,14 @@ import os
 def download_video(youtube_url, output_dir="videos", cookies_path=None):
     os.makedirs(output_dir, exist_ok=True)
 
-    # Options for yt-dlp to download the best available video and audio separately (no merging)
+    # Options for yt-dlp to download the best video and audio separately without merging
     ydl_opts = {
         'format': 'bestvideo+bestaudio/best',  # Download the best video and audio separately
         'outtmpl': os.path.join(output_dir, '%(id)s.%(ext)s'),  # Template for saving the file
         'noplaylist': True,  # To avoid downloading entire playlist if URL is a playlist
+        'postprocessors': [],  # Disable postprocessors to prevent merging
+        'no_warnings': True,  # Avoid unnecessary warnings
+        'quiet': True,  # Minimize output for cleanliness
     }
 
     # If cookies are provided, add them to yt-dlp options
@@ -41,7 +44,6 @@ def download_video(youtube_url, output_dir="videos", cookies_path=None):
     video_id = youtube_url.split("v=")[-1]
     video_path = os.path.join(output_dir, f"{video_id}.mp4")
     return video_path
-
 
 # Function to extract frames
 def extract_frames(video_path, frame_rate=1, output_dir="frames"):
