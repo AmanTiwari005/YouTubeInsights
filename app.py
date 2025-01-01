@@ -15,7 +15,7 @@ def download_video(youtube_url, output_dir="videos", cookies_path=None):
 
     # Options for yt-dlp to download the best available combined video+audio stream (no merging)
     ydl_opts = {
-        'format': 'bestvideo+bestaudio/best',  # Combined best video and audio stream
+        'format': 'bestvideo+bestaudio/best',  # Best video + best audio combined
         'outtmpl': os.path.join(output_dir, '%(id)s.%(ext)s'),  # Template for saving the file
         'noplaylist': True,  # To avoid downloading entire playlist if URL is a playlist
         'postprocessors': [],  # Disable postprocessors to prevent merging and ffmpeg usage
