@@ -9,8 +9,11 @@ from pytube import YouTube
 from torchvision import transforms
 from torchvision.models import detection
 
+import yt_dlp
+import os
+
 # Function to download YouTube video using yt-dlp
-def download_video(youtube_url, output_dir="videos"):
+def download_video(youtube_url, output_dir="videos", cookies_path=None):
     os.makedirs(output_dir, exist_ok=True)
     
     # Options for yt-dlp
@@ -18,6 +21,10 @@ def download_video(youtube_url, output_dir="videos"):
         'format': 'bestvideo+bestaudio/best',  # Download best video and audio quality
         'outtmpl': os.path.join(output_dir, '%(id)s.%(ext)s'),  # Template for saving the file
     }
+    
+    # If cookies are provided, add them to yt-dlp options
+    if cookies_path:
+        ydl_opts['cookies'] = cookies_path
 
     # Using yt-dlp to download the video
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
@@ -27,6 +34,7 @@ def download_video(youtube_url, output_dir="videos"):
     video_id = youtube_url.split("v=")[-1]
     video_path = os.path.join(output_dir, f"{video_id}.mp4")
     return video_path
+
 
 # Function to extract frames
 def extract_frames(video_path, frame_rate=1, output_dir="frames"):
@@ -114,13 +122,13 @@ def main():
         output_dir = "output"
         os.makedirs(output_dir, exist_ok=True)
 
+        # Specify the path to your cookies file (for age-restricted videos)
+        cookies_path = 'path_to_your_cookies_file'  # Replace with actual path if necessary
+
         # Process each video
         for url in video_urls:
             st.write(f"Processing video: {url}")
             try:
-                # Specify the path to your cookies file for age-restricted videos (if needed)
-                cookies_path = 'path_to_your_cookies_file'  # Replace with actual path
-                
                 # Download video
                 video_path = download_video(url, output_dir=os.path.join(output_dir, "videos"), cookies_path=cookies_path)
                 st.write(f"Video downloaded: {video_path}")
@@ -149,6 +157,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-
-
