@@ -3,6 +3,6 @@ pytesseract
 openai-whisper
 torch==2.0.0
 torchvision==0.15.0
-transformers
+transformers==4.28.0
 pytube
 streamlit
