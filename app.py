@@ -25,13 +25,13 @@ def download_video(youtube_url, output_dir="videos"):
         # Fallback to yt-dlp
         try:
             ydl_opts = {
-                'format': 'best[ext=mp4][protocol^=http]',  # Download best MP4 format with no merging
+                'format': 'best[ext=mp4]',  # Download best MP4 format without merging
                 'outtmpl': os.path.join(output_dir, '%(id)s.%(ext)s'),
                 'quiet': True,  # Minimize yt-dlp output
                 'noplaylist': True,  # Disable playlist download
-                'postprocessors': [],  # Disable postprocessing to prevent any ffmpeg use
-                'ffmpeg_location': None,  # Explicitly set ffmpeg_location to None to avoid using ffmpeg
-                'merge_output_format': None,  # Ensure no merging is attempted
+                'merge_output_format': None,  # Ensure no merging takes place
+                'ffmpeg_location': None,  # Explicitly set ffmpeg_location to None
+                'postprocessors': [],  # Disable any postprocessing that requires ffmpeg
             }
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 info_dict = ydl.extract_info(youtube_url, download=True)
@@ -39,6 +39,7 @@ def download_video(youtube_url, output_dir="videos"):
         except Exception as ytdlp_error:
             raise RuntimeError(f"Failed to download video with yt-dlp: {ytdlp_error}")
     return video_path
+
 
 
 
