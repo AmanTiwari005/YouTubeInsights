@@ -13,34 +13,37 @@ def download_video(youtube_url, output_dir="videos"):
     os.makedirs(output_dir, exist_ok=True)
     video_path = ""
     try:
-        # Attempt downloading the video using yt-dlp directly without requiring ffmpeg
-        ydl_opts = {
-            'format': 'bestvideo[ext=mp4]',  # Download best video stream in mp4 format
-            'outtmpl': os.path.join(output_dir, '%(id)s.%(ext)s'),  # Template for output filename
-            'quiet': True,  # Suppress output
-            'noplaylist': True,  # Disable playlist download
-            'merge_output_format': None,  # Disable merging of audio and video
-            'ffmpeg_location': '/nonexistent/path',  # Point to a non-existent location for ffmpeg
-            'no_post_overwrites': True,  # Prevent any post-processing
-            'nocheckcertificate': True,  # Skip certificate verification
-            'postprocessors': [],  # Disable postprocessors
-            'abort_on_error': True  # Stop immediately if an error is encountered
-        }
-
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            info_dict = ydl.extract_info(youtube_url, download=True)
-            video_path = ydl.prepare_filename(info_dict)  # Get the actual downloaded video path
-        
+        # Try downloading with pytube
+        yt = YouTube(youtube_url)
+        stream = yt.streams.filter(progressive=True, file_extension="mp4").get_highest_resolution()
+        video_path = os.path.join(output_dir, f"{yt.video_id}.mp4")
+        stream.download(output_path=output_dir, filename=f"{yt.video_id}.mp4")
         return video_path
+    except Exception as pytube_error:
+        st.warning(f"pytube failed: {pytube_error}. Falling back to yt-dlp.")
+        
+        # Fallback to yt-dlp
+        try:
+            # yt-dlp options to download the best MP4 file directly without ffmpeg
+            ydl_opts = {
+                'format': 'best[ext=mp4]',  # Ensure MP4 format
+                'outtmpl': os.path.join(output_dir, '%(id)s.%(ext)s'),  # Template for output filename
+                'quiet': True,  # Minimize output
+                'noplaylist': True,  # Disable playlist download
+                'ffmpeg_location': None,  # Make sure no ffmpeg is used
+                'merge_output_format': None,  # Ensure no merging
+                'postprocessors': [],  # Disable any postprocessing
+                'nocheckcertificate': True,  # Disable certificate verification if needed
+                'no_post_overwrites': True  # Ensure no post-processing happens
+            }
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                info_dict = ydl.extract_info(youtube_url, download=True)
+                video_path = ydl.prepare_filename(info_dict)  # Get the downloaded file path
+        except Exception as ytdlp_error:
+            raise RuntimeError(f"Failed to download video with yt-dlp: {ytdlp_error}")
     
-    except Exception as e:
-        raise RuntimeError(f"Failed to download video with yt-dlp: {e}")
+    return video_path
 
-# Example usage
-video_url = "https://www.youtube.com/watch?v=Ar84PDWCnLk"
-output_dir = "output_videos"
-video_path = download_video(video_url, output_dir)
-st.write(f"Video downloaded at: {video_path}")
 
 
 
