@@ -12,24 +12,19 @@ from torchvision.models import detection
 
 from pytube import YouTube
 
-# Function to download YouTube video using pytube
 def download_video(youtube_url, output_dir="videos"):
     os.makedirs(output_dir, exist_ok=True)
-    
     try:
-        # Initialize YouTube object
         yt = YouTube(youtube_url)
-        
-        # Select the highest resolution stream with combined audio+video
         stream = yt.streams.filter(progressive=True, file_extension='mp4').get_highest_resolution()
-        
-        # Download the video
         video_path = os.path.join(output_dir, f"{yt.video_id}.mp4")
         stream.download(output_path=output_dir, filename=f"{yt.video_id}.mp4")
-        
         return video_path
     except Exception as e:
-        raise RuntimeError(f"Failed to download video: {e}")
+        if "403" in str(e):
+            raise RuntimeError("This video is restricted. Please provide a different video.")
+        else:
+            raise RuntimeError(f"Failed to download video: {e}")
 
 
 # Function to extract frames
