@@ -24,23 +24,26 @@ def download_video(youtube_url, output_dir="videos"):
         
         # Fallback to yt-dlp
         try:
-            # Make sure no merging or post-processing happens and ffmpeg is not used.
+            # yt-dlp options to download the best MP4 file directly without ffmpeg
             ydl_opts = {
-                'format': 'best[ext=mp4]',  # Ensure we download an MP4 file with no merging
-                'outtmpl': os.path.join(output_dir, '%(id)s.%(ext)s'),  # Save the video in the specified directory
-                'quiet': True,  # Minimize yt-dlp output
+                'format': 'best[ext=mp4]',  # Ensure MP4 format
+                'outtmpl': os.path.join(output_dir, '%(id)s.%(ext)s'),  # Template for output filename
+                'quiet': True,  # Minimize output
                 'noplaylist': True,  # Disable playlist download
-                'merge_output_format': None,  # No merging needed
-                'ffmpeg_location': '/nonexistent/path',  # Force an invalid path to avoid using ffmpeg
-                'postprocessors': [],  # Disable postprocessors to prevent any usage of ffmpeg
-                'nocheckcertificate': True  # Avoid SSL certificate checks (in case of issues with certificates)
+                'ffmpeg_location': None,  # Make sure no ffmpeg is used
+                'merge_output_format': None,  # Ensure no merging
+                'postprocessors': [],  # Disable any postprocessing
+                'nocheckcertificate': True,  # Disable certificate verification if needed
+                'no_post_overwrites': True  # Ensure no post-processing happens
             }
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 info_dict = ydl.extract_info(youtube_url, download=True)
-                video_path = ydl.prepare_filename(info_dict)  # Get the actual downloaded file path
+                video_path = ydl.prepare_filename(info_dict)  # Get the downloaded file path
         except Exception as ytdlp_error:
             raise RuntimeError(f"Failed to download video with yt-dlp: {ytdlp_error}")
+    
     return video_path
+
 
 
 
