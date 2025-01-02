@@ -3,36 +3,31 @@ import cv2
 import pytesseract
 import torch
 import yt_dlp
+from pytube import YouTube
 import whisper
 import streamlit as st
 from pytube import YouTube
 from torchvision import transforms
 from torchvision.models import detection
 
-# Function to download YouTube video using yt-dlp without merging and ffmpeg
-def download_video(youtube_url, output_dir="videos", cookies_path=None):
+# Function to download YouTube video using pytube
+def download_video(youtube_url, output_dir="videos"):
     os.makedirs(output_dir, exist_ok=True)
-
-    # Options for yt-dlp to download the best available combined video+audio stream (no merging)
-    ydl_opts = {
-    'format': 'best[ext=mp4]',  # Avoid selecting separate video/audio streams
-    'outtmpl': os.path.join(output_dir, '%(id)s.%(ext)s'),
-    'noplaylist': True,
-    'quiet': True,
-    }
-
-    # If cookies are provided, add them to yt-dlp options
-    if cookies_path:
-        ydl_opts['cookies'] = cookies_path
-
-    # Using yt-dlp to download the video
-    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-        ydl.download([youtube_url])
-
-    # Get the video path (using the video ID as filename)
-    video_id = youtube_url.split("v=")[-1]
-    video_path = os.path.join(output_dir, f"{video_id}.mp4")
-    return video_path
+    
+    try:
+        # Initialize YouTube object
+        yt = YouTube(youtube_url)
+        
+        # Select the highest resolution stream with combined audio+video
+        stream = yt.streams.filter(progressive=True, file_extension='mp4').get_highest_resolution()
+        
+        # Download the video
+        video_path = os.path.join(output_dir, f"{yt.video_id}.mp4")
+        stream.download(output_path=output_dir, filename=f"{yt.video_id}.mp4")
+        
+        return video_path
+    except Exception as e:
+        raise RuntimeError(f"Failed to download video: {e}")
 
 # Function to extract frames
 def extract_frames(video_path, frame_rate=1, output_dir="frames"):
