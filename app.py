@@ -3,28 +3,56 @@ import cv2
 import pytesseract
 import torch
 import yt_dlp
-from pytube import YouTube
 import whisper
 import streamlit as st
 from pytube import YouTube
 from torchvision import transforms
 from torchvision.models import detection
 
-from pytube import YouTube
 
-def download_video(youtube_url, output_dir="videos"):
+# Function to download videos using pytube and yt-dlp fallback
+def download_video(youtube_url, output_dir="videos", cookies_path=None):
     os.makedirs(output_dir, exist_ok=True)
+
+    # Attempt to download using pytube
     try:
         yt = YouTube(youtube_url)
         stream = yt.streams.filter(progressive=True, file_extension='mp4').get_highest_resolution()
         video_path = os.path.join(output_dir, f"{yt.video_id}.mp4")
         stream.download(output_path=output_dir, filename=f"{yt.video_id}.mp4")
         return video_path
-    except Exception as e:
-        if "403" in str(e):
-            raise RuntimeError("This video is restricted. Please provide a different video.")
+    except Exception as pytube_error:
+        # Fallback to yt-dlp if pytube fails
+        if cookies_path:
+            try:
+                return download_video_with_yt_dlp(youtube_url, output_dir, cookies_path)
+            except Exception as yt_dlp_error:
+                raise RuntimeError(f"Pytube error: {pytube_error}\nYT-DLP error: {yt_dlp_error}")
         else:
-            raise RuntimeError(f"Failed to download video: {e}")
+            raise RuntimeError(f"Pytube failed, and no cookies provided for yt-dlp fallback: {pytube_error}")
+
+
+# Function to download videos with yt-dlp
+def download_video_with_yt_dlp(youtube_url, output_dir="videos", cookies_path=None):
+    os.makedirs(output_dir, exist_ok=True)
+    
+    ydl_opts = {
+        'format': 'best[ext=mp4]',  # Combined video+audio streams
+        'outtmpl': os.path.join(output_dir, '%(id)s.%(ext)s'),
+        'noplaylist': True,
+        'quiet': True,
+    }
+
+    if cookies_path:
+        ydl_opts['cookiefile'] = cookies_path  # Use cookies if provided
+
+    try:
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            ydl.download([youtube_url])
+        video_id = youtube_url.split("v=")[-1]
+        return os.path.join(output_dir, f"{video_id}.mp4")
+    except Exception as e:
+        raise RuntimeError(f"Failed to download video with yt-dlp: {e}")
 
 
 # Function to extract frames
@@ -53,11 +81,13 @@ def extract_frames(video_path, frame_rate=1, output_dir="frames"):
     cap.release()
     return video_frames_dir
 
+
 # Function to transcribe audio
 def extract_audio_transcription(video_path, model_name="base"):
     model = whisper.load_model(model_name)
     transcription = model.transcribe(video_path)
     return transcription["text"]
+
 
 # Function to detect objects in frames
 def detect_objects_in_frames(frame_dir, model=None, confidence_threshold=0.5):
@@ -86,6 +116,7 @@ def detect_objects_in_frames(frame_dir, model=None, confidence_threshold=0.5):
 
     return results
 
+
 # Function to extract text from frames
 def extract_text_from_frames(frame_dir):
     results = {}
@@ -96,6 +127,7 @@ def extract_text_from_frames(frame_dir):
         results[frame_name] = text
 
     return results
+
 
 def main():
     st.title("YouTube Video Content Analysis")
@@ -121,8 +153,7 @@ def main():
             st.write(f"Processing video: {url}")
             try:
                 # Download video
-                video_path = download_video(url, output_dir=os.path.join(output_dir, "videos"))
-
+                video_path = download_video(url, output_dir=os.path.join(output_dir, "videos"), cookies_path=cookies_path)
                 st.write(f"Video downloaded: {video_path}")
 
                 # Extract frames
@@ -146,6 +177,7 @@ def main():
 
             except Exception as e:
                 st.error(f"Error processing video {url}: {e}")
+
 
 if __name__ == "__main__":
     main()
