@@ -10,6 +10,8 @@ from pytube import YouTube
 from torchvision import transforms
 from torchvision.models import detection
 
+from pytube import YouTube
+
 # Function to download YouTube video using pytube
 def download_video(youtube_url, output_dir="videos"):
     os.makedirs(output_dir, exist_ok=True)
@@ -28,6 +30,7 @@ def download_video(youtube_url, output_dir="videos"):
         return video_path
     except Exception as e:
         raise RuntimeError(f"Failed to download video: {e}")
+
 
 # Function to extract frames
 def extract_frames(video_path, frame_rate=1, output_dir="frames"):
