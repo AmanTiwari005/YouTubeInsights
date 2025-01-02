@@ -29,6 +29,9 @@ def download_video(youtube_url, output_dir="videos"):
                 'outtmpl': os.path.join(output_dir, '%(id)s.%(ext)s'),
                 'quiet': True,  # Minimize yt-dlp output
                 'noplaylist': True,  # Disable playlist download
+                'postprocessors': [],  # Disable postprocessing to prevent any ffmpeg use
+                'ffmpeg_location': None,  # Explicitly set ffmpeg_location to None to avoid using ffmpeg
+                'merge_output_format': None,  # Ensure no merging is attempted
             }
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 info_dict = ydl.extract_info(youtube_url, download=True)
@@ -36,6 +39,7 @@ def download_video(youtube_url, output_dir="videos"):
         except Exception as ytdlp_error:
             raise RuntimeError(f"Failed to download video with yt-dlp: {ytdlp_error}")
     return video_path
+
 
 
 # Function to extract frames
