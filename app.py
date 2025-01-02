@@ -126,7 +126,8 @@ def main():
             st.write(f"Processing video: {url}")
             try:
                 # Download video
-                video_path = download_video(url, output_dir=os.path.join(output_dir, "videos"), cookies_path=cookies_path)
+                video_path = download_video(url, output_dir=os.path.join(output_dir, "videos"))
+
                 st.write(f"Video downloaded: {video_path}")
 
                 # Extract frames
