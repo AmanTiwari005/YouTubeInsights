@@ -2,26 +2,42 @@ import os
 import cv2
 import pytesseract
 import torch
+import yt_dlp
+from pytube import YouTube
 import whisper
 import streamlit as st
-from pytube import YouTube
 from torchvision import transforms
 from torchvision.models import detection
 
-# Function to download YouTube video using pytube
 def download_video(youtube_url, output_dir="videos"):
     os.makedirs(output_dir, exist_ok=True)
+    video_path = ""
     try:
+        # Try downloading with pytube
         yt = YouTube(youtube_url)
-        # Download the highest resolution progressive stream
         stream = yt.streams.filter(progressive=True, file_extension="mp4").get_highest_resolution()
         video_path = os.path.join(output_dir, f"{yt.video_id}.mp4")
         stream.download(output_path=output_dir, filename=f"{yt.video_id}.mp4")
         return video_path
-    except Exception as e:
-        raise RuntimeError(f"Failed to download video: {e}")
+    except Exception as pytube_error:
+        st.warning(f"pytube failed: {pytube_error}. Falling back to yt-dlp.")
+        
+        # Fallback to yt-dlp
+        try:
+            ydl_opts = {
+                'format': 'bestvideo+bestaudio/best',  # Combined video and audio
+                'outtmpl': os.path.join(output_dir, '%(id)s.%(ext)s'),
+                'quiet': True,  # Minimize yt-dlp output
+            }
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                ydl.download([youtube_url])
+            video_id = youtube_url.split("v=")[-1]
+            video_path = os.path.join(output_dir, f"{video_id}.mp4")
+        except Exception as ytdlp_error:
+            raise RuntimeError(f"Failed to download video with yt-dlp: {ytdlp_error}")
+    return video_path
 
-# Function to extract frames from the video
+# Function to extract frames
 def extract_frames(video_path, frame_rate=1, output_dir="frames"):
     video_id = os.path.splitext(os.path.basename(video_path))[0]
     video_frames_dir = os.path.join(output_dir, video_id)
@@ -47,13 +63,13 @@ def extract_frames(video_path, frame_rate=1, output_dir="frames"):
     cap.release()
     return video_frames_dir
 
-# Function to transcribe audio using Whisper
+# Function to transcribe audio
 def extract_audio_transcription(video_path, model_name="base"):
     model = whisper.load_model(model_name)
     transcription = model.transcribe(video_path)
     return transcription["text"]
 
-# Function to detect objects in video frames
+# Function to detect objects in frames
 def detect_objects_in_frames(frame_dir, model=None, confidence_threshold=0.5):
     if model is None:
         model = detection.fasterrcnn_resnet50_fpn(pretrained=True).eval()
@@ -80,7 +96,7 @@ def detect_objects_in_frames(frame_dir, model=None, confidence_threshold=0.5):
 
     return results
 
-# Function to extract text from video frames
+# Function to extract text from frames
 def extract_text_from_frames(frame_dir):
     results = {}
     for frame_name in os.listdir(frame_dir):
@@ -91,7 +107,6 @@ def extract_text_from_frames(frame_dir):
 
     return results
 
-# Main Streamlit application
 def main():
     st.title("YouTube Video Content Analysis")
     st.write("Enter the URLs of YouTube videos to analyze their content.")
