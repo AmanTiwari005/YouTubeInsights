@@ -1,9 +1,3 @@
-opencv-python-headless
-pytesseract
-openai-whisper
-torch
-torchvision
-transformers
-pytube
 streamlit
-yt_dlp
+transformers
+youtube-transcript-api
