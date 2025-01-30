@@ -1,168 +1,85 @@
-import os
-import cv2
-import pytesseract
-import torch
-import yt_dlp
-from pytube import YouTube
-import whisper
 import streamlit as st
-from torchvision import transforms
-from torchvision.models import detection
+from transformers import pipeline
+from youtube_transcript_api import YouTubeTranscriptApi
+from youtube_transcript_api._errors import TranscriptsDisabled
 
-def download_video(youtube_url, output_dir="videos"):
-    os.makedirs(output_dir, exist_ok=True)
-    video_path = ""
+# Initialize the summarization pipeline using Hugging Face
+summarizer = pipeline("summarization", model="facebook/bart-large-cnn")
+
+# Function to get YouTube transcript with timestamps
+def get_transcript_with_timestamps(video_url):
     try:
-        # Try downloading with pytube
-        yt = YouTube(youtube_url)
-        stream = yt.streams.filter(progressive=True, file_extension="mp4").get_highest_resolution()
-        video_path = os.path.join(output_dir, f"{yt.video_id}.mp4")
-        stream.download(output_path=output_dir, filename=f"{yt.video_id}.mp4")
-        return video_path
-    except Exception as pytube_error:
-        st.warning(f"pytube failed: {pytube_error}. Falling back to yt-dlp.")
+        video_id = video_url.split("v=")[-1]
+        transcript = YouTubeTranscriptApi.get_transcript(video_id)
+        return transcript
+    except TranscriptsDisabled:
+        st.error("Transcripts are disabled for this video.")
+        return None
+    except Exception as e:
+        st.error(f"Error fetching transcript: {e}")
+        return None
+
+# Function to summarize text using Hugging Face with timestamps
+def summarize_text_with_huggingface(transcript):
+    try:
+        # Combine text for summarization
+        text = " ".join([t["text"] for t in transcript])
         
-        # Fallback to yt-dlp
-        try:
-            # yt-dlp options to download the best MP4 file directly without ffmpeg
-            ydl_opts = {
-                'format': 'best[ext=mp4]',  # Ensure MP4 format
-                'outtmpl': os.path.join(output_dir, '%(id)s.%(ext)s'),  # Template for output filename
-                'quiet': True,  # Minimize output
-                'noplaylist': True,  # Disable playlist download
-                'ffmpeg_location': None,  # Make sure no ffmpeg is used
-                'merge_output_format': None,  # Ensure no merging
-                'postprocessors': [],  # Disable any postprocessing
-                'nocheckcertificate': True,  # Disable certificate verification if needed
-                'no_post_overwrites': True  # Ensure no post-processing happens
-            }
-            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                info_dict = ydl.extract_info(youtube_url, download=True)
-                video_path = ydl.prepare_filename(info_dict)  # Get the downloaded file path
-        except Exception as ytdlp_error:
-            raise RuntimeError(f"Failed to download video with yt-dlp: {ytdlp_error}")
-    
-    return video_path
+        # Split the text into chunks if it's too long (Hugging Face models have token limits)
+        max_chunk_length = 1024  # Adjust based on the model's token limit
+        chunks = [text[i:i + max_chunk_length] for i in range(0, len(text), max_chunk_length)]
+        
+        summaries = []
+        for chunk in chunks:
+            summary = summarizer(chunk, max_length=130, min_length=30, do_sample=False)
+            summaries.append(summary[0]['summary_text'])
+        
+        full_summary = " ".join(summaries)
+        
+        # Add timestamps to the summary
+        timestamped_summary = []
+        for segment in transcript:
+            if any(keyword.lower() in segment["text"].lower() for keyword in full_summary.split()):
+                timestamp = segment["start"]
+                minutes = int(timestamp // 60)
+                seconds = int(timestamp % 60)
+                timestamp_str = f"{minutes:02d}:{seconds:02d}"
+                timestamped_summary.append(f"[{timestamp_str}] {segment['text']}")
+        
+        return full_summary, timestamped_summary
+    except Exception as e:
+        st.error(f"Error summarizing text: {e}")
+        return None, None
 
-
-
-
-
-# Function to extract frames
-def extract_frames(video_path, frame_rate=1, output_dir="frames"):
-    video_id = os.path.splitext(os.path.basename(video_path))[0]
-    video_frames_dir = os.path.join(output_dir, video_id)
-    os.makedirs(video_frames_dir, exist_ok=True)
-
-    cap = cv2.VideoCapture(video_path)
-    fps = int(cap.get(cv2.CAP_PROP_FPS))
-    frame_interval = fps * frame_rate  # Extract one frame per second
-
-    frame_count = 0
-    saved_frames = 0
-
-    while cap.isOpened():
-        ret, frame = cap.read()
-        if not ret:
-            break
-        if frame_count % frame_interval == 0:
-            frame_path = os.path.join(video_frames_dir, f"frame_{saved_frames}.jpg")
-            cv2.imwrite(frame_path, frame)
-            saved_frames += 1
-        frame_count += 1
-
-    cap.release()
-    return video_frames_dir
-
-# Function to transcribe audio
-def extract_audio_transcription(video_path, model_name="base"):
-    model = whisper.load_model(model_name)
-    transcription = model.transcribe(video_path)
-    return transcription["text"]
-
-# Function to detect objects in frames
-def detect_objects_in_frames(frame_dir, model=None, confidence_threshold=0.5):
-    if model is None:
-        model = detection.fasterrcnn_resnet50_fpn(pretrained=True).eval()
-
-    transform = transforms.Compose([transforms.ToTensor()])
-    results = {}
-
-    for frame_name in os.listdir(frame_dir):
-        frame_path = os.path.join(frame_dir, frame_name)
-        image = cv2.imread(frame_path)
-        image_tensor = transform(image)
-
-        with torch.no_grad():
-            predictions = model([image_tensor])
-
-        detected_objects = []
-        for i, box in enumerate(predictions[0]['boxes']):
-            score = predictions[0]['scores'][i].item()
-            if score >= confidence_threshold:
-                label = predictions[0]['labels'][i].item()
-                detected_objects.append((label, score))
-
-        results[frame_name] = detected_objects
-
-    return results
-
-# Function to extract text from frames
-def extract_text_from_frames(frame_dir):
-    results = {}
-    for frame_name in os.listdir(frame_dir):
-        frame_path = os.path.join(frame_dir, frame_name)
-        image = cv2.imread(frame_path)
-        text = pytesseract.image_to_string(image)
-        results[frame_name] = text
-
-    return results
-
+# Streamlit app
 def main():
-    st.title("YouTube Video Content Analysis")
-    st.write("Enter the URLs of YouTube videos to analyze their content.")
-
-    # Input: YouTube URLs
-    video_urls = st.text_area("Enter YouTube URLs (one per line)").splitlines()
-
-    if st.button("Analyze Videos"):
-        if not video_urls:
-            st.error("Please provide at least one YouTube video URL.")
-            return
-
-        # Create output directories
-        output_dir = "output"
-        os.makedirs(output_dir, exist_ok=True)
-
-        # Process each video
-        for url in video_urls:
-            st.write(f"Processing video: {url}")
-            try:
-                # Download video
-                video_path = download_video(url, output_dir=os.path.join(output_dir, "videos"))
-                st.write(f"Video downloaded: {video_path}")
-
-                # Extract frames
-                frames_dir = extract_frames(video_path, output_dir=os.path.join(output_dir, "frames"))
-                st.write(f"Frames extracted to: {frames_dir}")
-
-                # Transcribe audio
-                transcription = extract_audio_transcription(video_path)
-                st.write("Transcription:")
-                st.text_area("Transcription Text", transcription, height=150)
-
-                # Object detection
-                st.write("Performing object detection...")
-                object_detection_results = detect_objects_in_frames(frames_dir)
-                st.json(object_detection_results)
-
-                # Text extraction
-                st.write("Extracting text from frames...")
-                text_extraction_results = extract_text_from_frames(frames_dir)
-                st.json(text_extraction_results)
-
-            except Exception as e:
-                st.error(f"Error processing video {url}: {e}")
+    st.title("YouTube Video Summarizer")
+    st.markdown("""
+        This app summarizes YouTube videos using AI. Simply paste the URL of the video below and click 'Summarize' to get a concise summary with timestamps.
+    """)
+    
+    # Input for YouTube video URL
+    video_url = st.text_input("Enter YouTube video URL:")
+    
+    if st.button("Summarize"):
+        if video_url:
+            with st.spinner("Fetching transcript and summarizing..."):
+                transcript = get_transcript_with_timestamps(video_url)
+                if transcript:
+                    summary, timestamped_summary = summarize_text_with_huggingface(transcript)
+                    if summary and timestamped_summary:
+                        st.success("Summary generated successfully!")
+                        
+                        # Display the summary
+                        st.subheader("Summary")
+                        st.write(summary)
+                        
+                        # Display the timestamped summary
+                        st.subheader("Timestamped Summary")
+                        for line in timestamped_summary:
+                            st.write(line)
+        else:
+            st.warning("Please enter a valid YouTube video URL.")
 
 if __name__ == "__main__":
     main()
